@@ -14,10 +14,10 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 
 let databaseReady;
-app.use("/api", (_req, _res, next) => {
+const ensureDatabase = (_req, _res, next) => {
   databaseReady ||= initializeDatabase();
   databaseReady.then(() => next()).catch(next);
-});
+};
 
 const run = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 const result = async (res, query) => {
@@ -56,6 +56,8 @@ app.post("/api/auth/login", (req, res) => {
   res.json({ ok: true });
 });
 app.post("/api/auth/logout", (_req, res) => { clearAdminCookie(res); res.json({ ok: true }); });
+
+app.use("/api", ensureDatabase);
 
 app.get("/api/site", run(async (_req, res) => {
   const settings = await settingsObject();
