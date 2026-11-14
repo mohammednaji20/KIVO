@@ -1,23 +1,16 @@
-import React, { useEffect, useState } from "react";
-
-export default function App() {
-  const [site, setSite] = useState({settings:{brandName:"KIVO",tagline:"Creative Studio",heroTitle:"Creative that makes your brand impossible to ignore.",heroDescription:"We build bold visual identities, engaging motion graphics, and digital experiences that help ambitious brands stand out.",heroButton:"Start a project",email:"hello@kivo.studio"},services:[]});
-  const [dashboard, setDashboard] = useState(false);
-  const [health, setHealth] = useState("Connecting…");
-
-  useEffect(() => {
-    fetch("/api/health").then(r=>r.json()).then(()=>setHealth("API connected")).catch(()=>setHealth("API unavailable"));
-    fetch("/api/site").then(r=>r.json()).then(setSite).catch(()=>{});
-  }, []);
-
-  const s=site.settings||{};
-  return <main className="site">
-    <header className="nav"><a className="logo" href="#">KIVO<span>.</span></a><nav><a href="#services">Services</a><a href="#about">About</a><a href="#contact">Contact</a></nav><button onClick={()=>setDashboard(!dashboard)}>{dashboard?"View website":"KIVO OS"}</button></header>
-    {dashboard ? <section className="dashboard"><p className="eyebrow">WORKSPACE / OVERVIEW</p><h1>KIVO OS</h1><p>Your creative studio workspace.</p><div className="status">{health}</div><div className="tiles"><article><b>Services</b><strong>{site.services?.length||0}</strong></article><article><b>Workspace</b><strong>Ready</strong></article><article><b>Platform</b><strong>MVP</strong></article></div><p className="notice">This is the initial local-first MVP. Admin authentication and cloud database integration are not enabled yet. Do not expose administrative APIs publicly.</p></section> :
-    <><section className="hero"><p className="eyebrow">{s.tagline||"INDEPENDENT CREATIVE STUDIO"}</p><h1>{s.heroTitle}</h1><p className="intro">{s.heroDescription}</p><a className="cta" href="#contact">{s.heroButton||"Start a project"} ↗</a><div className="art"><span>IDEAS INTO IMPACT</span><b>K<span>.</span></b></div></section>
-    <section id="services" className="section"><p className="eyebrow">WHAT WE DO</p><h2>Creative services<span>.</span></h2><div className="cards">{(site.services||[]).map(x=><article key={x.id}><small>{x.category}</small><h3>{x.title}</h3><p>{x.description}</p><b>{x.price}</b></article>)}</div></section>
-    <section id="about" className="about"><p className="eyebrow">ABOUT KIVO</p><h2>We turn ideas into visual experiences.</h2><p>An independent creative studio helping ambitious businesses communicate with clarity, character, and confidence.</p></section>
-    <section id="contact" className="section contact"><p className="eyebrow">HAVE A PROJECT?</p><h2>Let's make something matter<span>.</span></h2><a className="cta" href={`mailto:${s.email||"hello@kivo.studio"}`}>Start a conversation ↗</a></section></>}
-    <footer>© {new Date().getFullYear()} KIVO Creative Studio <span>{health}</span></footer>
-  </main>;
+import React,{useEffect,useState} from "react";
+import {ArrowUpRight,LogOut,LockKeyhole} from "lucide-react";
+const api=async(url,options={})=>{const r=await fetch(url,{headers:{"Content-Type":"application/json"},...options});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Request failed");return d};
+export default function App(){
+ const [site,setSite]=useState({settings:{brandName:"KIVO",tagline:"Creative Studio",heroTitle:"Creative that makes your brand impossible to ignore.",heroDescription:"We build bold visual identities, engaging motion graphics, and digital experiences that help ambitious brands stand out.",heroButton:"Start a project",email:"hello@kivo.studio"},services:[]});
+ const [page,setPage]=useState(location.pathname==="/admin"?"admin":"site"),[auth,setAuth]=useState({ready:false,configured:false,authenticated:false}),[password,setPassword]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const [data,setData]=useState({leads:0,projects:0,income:0,expenses:0,profit:0});
+ useEffect(()=>{api("/api/site").then(setSite).catch(()=>{});api("/api/auth/status").then(x=>{setAuth({ready:true,...x});if(x.authenticated)load()}).catch(()=>setAuth(x=>({...x,ready:true})))},[]);
+ async function load(){try{const d=await api("/api/dashboard");setData(d)}catch(e){setError(e.message)}}
+ async function login(e){e.preventDefault();setBusy(true);setError("");try{await api("/api/auth/login",{method:"POST",body:JSON.stringify({password})});setAuth(x=>({...x,authenticated:true}));setPassword("");await load()}catch(e){setError(e.message)}finally{setBusy(false)}}
+ async function logout(){await api("/api/auth/logout",{method:"POST"});setAuth(x=>({...x,authenticated:false}));setPage("site")}
+ const s=site.settings||{};
+ if(page==="admin"&&(!auth.ready||!auth.authenticated))return <div className="auth-screen"><form className="auth-card" onSubmit={login}><div className="logo">KIVO<span>.</span></div><div className="eyebrow">PRIVATE WORKSPACE</div><h1>Welcome back.</h1><p>Sign in to access your KIVO operating system.</p>{auth.ready&&!auth.configured&&<div className="warning">Add SESSION_SECRET and ADMIN_PASSWORD to your hosting environment variables before signing in.</div>}<label>Admin password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password"/></label><button disabled={busy||!auth.configured}>{busy?"Signing in…":"Sign in securely"}</button>{error&&<p className="error">{error}</p>}<a href="/">← Back to website</a></form></div>;
+ if(page==="admin")return <div className="admin"><header><div className="logo">KIVO<span>.</span> <small>OS</small></div><button onClick={logout}><LogOut size={16}/> Sign out</button></header><main><div className="eyebrow">PRIVATE WORKSPACE / OVERVIEW</div><h1>KIVO OS</h1><p>Welcome to your secure studio dashboard.</p><div className="metrics">{[["Leads",data.leads],["Active projects",data.projects],["Income", "$"+data.income],["Expenses","$"+data.expenses],["Net profit","$"+data.profit]].map(([k,v])=><article key={k}><small>{k}</small><strong>{v}</strong></article>)}</div><section><h2>Workspace status</h2><p>Your private dashboard is protected. Leads, projects, services and financial records are only available after authentication.</p></section></main></div>;
+ return <div className="public"><div className="top"><a className="logo" href="/">KIVO<span>.</span></a><nav><a href="#services">Services</a><a href="#about">About</a><a href="#contact">Contact</a></nav><a className="admin-link" href="/admin"><LockKeyhole size={14}/> Owner login</a></div><main><div className="eyebrow">{s.tagline||"CREATIVE STUDIO"}</div><h1>{s.heroTitle}</h1><p className="intro">{s.heroDescription}</p><a className="cta" href={"mailto:"+(s.email||"hello@kivo.studio")}>{s.heroButton||"Start a project"} <ArrowUpRight size={16}/></a><section id="services"><div className="eyebrow">WHAT WE DO</div><h2>Creative services.</h2><div className="services">{(site.services||[]).map(x=><article key={x.id}><small>{x.category}</small><h3>{x.title}</h3><p>{x.description}</p><b>{x.price}</b></article>)}</div></section><section id="about"><div className="eyebrow">ABOUT KIVO</div><h2>{s.aboutTitle||"We turn ideas into visual experiences."}</h2><p>{s.aboutDescription||"An independent creative studio helping ambitious businesses."}</p></section><section id="contact"><div className="eyebrow">HAVE A PROJECT?</div><h2>Let's make something matter.</h2><a className="cta" href={"mailto:"+(s.email||"hello@kivo.studio")}>Start a conversation ↗</a></section></main><footer>© {new Date().getFullYear()} KIVO Creative Studio</footer></div>
 }
