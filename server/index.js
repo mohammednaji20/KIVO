@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 
-const run = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+let databaseReady;\napp.use("/api", (_req, _res, next) => {\n  databaseReady ||= initializeDatabase();\n  databaseReady.then(() => next()).catch(next);\n});\n\nconst run = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 const result = async (res, query) => {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
